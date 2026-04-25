@@ -63,18 +63,22 @@ export default function TypingTest() {
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setIsInputReady(false);
-  }, [passage.text]);
+  const restartBtnRef = useRef<HTMLButtonElement>(null);
 
   const handleModeChange = (newMode: 'typing-test' | 'passages') => {
     setTestMode(newMode);
+    setIsInputReady(false);
   };
 
   const focusInput = useCallback(() => {
     inputRef.current?.focus();
   }, []);
+
+  const handleRestartAction = useCallback(async () => {
+    await restart();
+    setIsInputReady(true);
+    requestAnimationFrame(focusInput);
+  }, [restart, focusInput]);
 
   const openPacingCaretForm = () => {
     setPacingWpmInput(pacingWpm ? String(pacingWpm) : '60');
@@ -94,11 +98,6 @@ export default function TypingTest() {
   useEffect(() => {
     const handleStartShortcut = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
-      const isControlFocused =
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement ||
-        target instanceof HTMLSelectElement ||
-        target instanceof HTMLButtonElement;
 
       if (event.key === 'Escape' && isInputReady && !finished) {
         event.preventDefault();
@@ -108,16 +107,17 @@ export default function TypingTest() {
         return;
       }
 
-      if (event.key === 'Enter' && event.shiftKey && !finished && !isControlFocused) {
-        event.preventDefault();
-        setIsInputReady(true);
-        requestAnimationFrame(focusInput);
+      if (event.key === 'Tab') {
+        if (target?.id !== 'pacing-wpm') {
+          event.preventDefault();
+          restartBtnRef.current?.focus();
+        }
       }
     };
 
     window.addEventListener('keydown', handleStartShortcut);
     return () => window.removeEventListener('keydown', handleStartShortcut);
-  }, [finished, focusInput, isInputReady, resetAttempt]);
+  }, [finished, isInputReady, resetAttempt]);
 
   const progress = testMode === 'typing-test' ? 0 : (typed.length / passage.text.length) * 100;
 
@@ -210,7 +210,8 @@ export default function TypingTest() {
             <Shuffle size={16} />
           </button>
           <button
-            onClick={() => restart()}
+            ref={restartBtnRef}
+            onClick={handleRestartAction}
             title="Restart"
             className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-500 hover:text-gray-900 hover:border-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-white"
           >
@@ -266,7 +267,7 @@ export default function TypingTest() {
 
             {!isInputReady && (
               <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-white/70 px-6 text-center text-sm font-medium text-gray-500 backdrop-blur-[1px] dark:bg-gray-900/70 dark:text-gray-300">
-                press shift + enter to start typing
+                press tab + enter to start typing
               </div>
             )}
 
@@ -285,7 +286,7 @@ export default function TypingTest() {
           </div>
 
           <p className="text-center text-xs text-gray-400 dark:text-gray-500">
-            Press shift + enter and start typing
+            Press tab + enter to start typing
           </p>
         </>
       ) : (
@@ -294,7 +295,7 @@ export default function TypingTest() {
           accuracy={accuracy}
           errors={errors}
           elapsedSeconds={elapsedSeconds}
-          onRestart={() => restart()}
+          onRestart={handleRestartAction}
         />
       )}
     </div>
