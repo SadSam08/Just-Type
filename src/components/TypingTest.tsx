@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
-import { RotateCcw, Shuffle } from 'lucide-react';
+import { RotateCcw, Shuffle, Clock } from 'lucide-react';
 import { useTypingTest } from '../hooks/useTypingTest';
 import TextDisplay from './TextDisplay';
 import Results from './Results';
@@ -11,6 +11,24 @@ const DIFFICULTY_STYLES: Record<string, string> = {
 };
 
 const PACING_WPM_STORAGE_KEY = 'justtype:pacing-wpm';
+const SESSION_DURATION_STORAGE_KEY = 'justtype:session-duration';
+
+const readStoredSessionDuration = (): number | null => {
+  try {
+    const storedValue = localStorage.getItem(SESSION_DURATION_STORAGE_KEY);
+    if (storedValue === null) return null;
+    const storedDuration = Number(storedValue);
+    return Number.isFinite(storedDuration) && storedDuration >= 0 ? storedDuration : null;
+  } catch {
+    return null;
+  }
+};
+
+const saveStoredSessionDuration = (duration: number) => {
+  try {
+    localStorage.setItem(SESSION_DURATION_STORAGE_KEY, String(duration));
+  } catch {}
+};
 
 const readStoredPacingWpm = (): number | null => {
   try {
@@ -43,8 +61,11 @@ export default function TypingTest() {
   const [isInputReady, setIsInputReady] = useState(false);
   const [isExtrasOpen, setIsExtrasOpen] = useState(false);
   const [isPacingFormOpen, setIsPacingFormOpen] = useState(false);
+  const [isDurationFormOpen, setIsDurationFormOpen] = useState(false);
   const [pacingWpmInput, setPacingWpmInput] = useState('60');
   const [pacingWpm, setPacingWpm] = useState<number | null>(readStoredPacingWpm);
+  const [sessionDurationInput, setSessionDurationInput] = useState('0');
+  const [sessionDuration, setSessionDuration] = useState<number | null>(readStoredSessionDuration);
   const {
     passage,
     typed,
@@ -59,7 +80,7 @@ export default function TypingTest() {
     handleInput,
     restart,
     resetAttempt,
-  } = useTypingTest(testMode);
+  } = useTypingTest(testMode, sessionDuration);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -83,6 +104,7 @@ export default function TypingTest() {
   const openPacingCaretForm = () => {
     setPacingWpmInput(pacingWpm ? String(pacingWpm) : '60');
     setIsPacingFormOpen(true);
+    setIsDurationFormOpen(false);
   };
 
   const handlePacingCaretSubmit = () => {
@@ -91,6 +113,22 @@ export default function TypingTest() {
       setPacingWpm(nextPacingWpm);
       saveStoredPacingWpm(nextPacingWpm);
       setIsPacingFormOpen(false);
+      setIsExtrasOpen(false);
+    }
+  };
+
+  const openDurationForm = () => {
+    setSessionDurationInput(sessionDuration !== null ? String(sessionDuration) : '0');
+    setIsDurationFormOpen(true);
+    setIsPacingFormOpen(false);
+  };
+
+  const handleDurationSubmit = () => {
+    const nextDuration = Number(sessionDurationInput);
+    if (Number.isFinite(nextDuration) && nextDuration >= 0) {
+      setSessionDuration(nextDuration);
+      saveStoredSessionDuration(nextDuration);
+      setIsDurationFormOpen(false);
       setIsExtrasOpen(false);
     }
   };
@@ -143,21 +181,37 @@ export default function TypingTest() {
             </button>
             {isExtrasOpen && (
               <div className="absolute right-0 top-full z-20 mt-2 w-72 rounded-xl border border-gray-200 bg-white p-3 shadow-xl shadow-gray-200/60 dark:border-gray-700 dark:bg-gray-900 dark:shadow-none">
-                {!isPacingFormOpen ? (
-                  <button
-                    type="button"
-                    onClick={openPacingCaretForm}
-                    className="flex w-full items-center justify-between gap-3 rounded-lg border border-transparent px-3 py-2.5 text-left transition-colors hover:border-gray-200 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-300 dark:hover:border-gray-700 dark:hover:bg-gray-800"
-                  >
-                    <span>
-                      <span className="block text-sm font-semibold text-gray-800 dark:text-gray-100">Pacing Caret</span>
-                      <span className="block text-xs text-gray-400 dark:text-gray-500">
-                        {pacingWpm ? `${pacingWpm} WPM saved` : 'Set a target pace'}
+                {!isPacingFormOpen && !isDurationFormOpen && (
+                  <div className="flex flex-col gap-1">
+                    <button
+                      type="button"
+                      onClick={openPacingCaretForm}
+                      className="flex w-full items-center justify-between gap-3 rounded-lg border border-transparent px-3 py-2.5 text-left transition-colors hover:border-gray-200 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-300 dark:hover:border-gray-700 dark:hover:bg-gray-800"
+                    >
+                      <span>
+                        <span className="block text-sm font-semibold text-gray-800 dark:text-gray-100">Pacing Caret</span>
+                        <span className="block text-xs text-gray-400 dark:text-gray-500">
+                          {pacingWpm ? `${pacingWpm} WPM saved` : 'Set a target pace'}
+                        </span>
                       </span>
-                    </span>
-                    <span className="h-6 w-0.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.45)]" />
-                  </button>
-                ) : (
+                      <span className="h-6 w-0.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.45)]" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={openDurationForm}
+                      className="flex w-full items-center justify-between gap-3 rounded-lg border border-transparent px-3 py-2.5 text-left transition-colors hover:border-gray-200 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-300 dark:hover:border-gray-700 dark:hover:bg-gray-800"
+                    >
+                      <span>
+                        <span className="flex items-center gap-1.5 text-sm font-semibold text-gray-800 dark:text-gray-100"><Clock size={14} /> Session Duration</span>
+                        <span className="block text-xs text-gray-400 dark:text-gray-500">
+                          {sessionDuration && sessionDuration > 0 ? `${sessionDuration}s limit` : 'Infinite session'}
+                        </span>
+                      </span>
+                      <span className="h-6 w-0.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.45)]" />
+                    </button>
+                  </div>
+                )}
+                {isPacingFormOpen && (
                   <div className="flex flex-col gap-3">
                     <div>
                       <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">Pacing Caret</div>
@@ -184,6 +238,40 @@ export default function TypingTest() {
                       <button
                         type="button"
                         onClick={handlePacingCaretSubmit}
+                        className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {isDurationFormOpen && (
+                  <div className="flex flex-col gap-3">
+                    <div>
+                      <div className="flex items-center gap-1.5 text-sm font-semibold text-gray-800 dark:text-gray-100"><Clock size={14} /> Session Duration</div>
+                      <div className="text-xs text-gray-400 dark:text-gray-500">Set typing session limit in seconds. Enter 0 for an infinite session.</div>
+                    </div>
+                    <div className="flex items-end gap-2">
+                      <div className="flex-1">
+                        <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400" htmlFor="session-duration">
+                          Seconds (0 for ∞)
+                        </label>
+                        <input
+                          id="session-duration"
+                          type="number"
+                          min="0"
+                          value={sessionDurationInput}
+                          onChange={(event) => setSessionDurationInput(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') handleDurationSubmit();
+                          }}
+                          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+                          autoFocus
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleDurationSubmit}
                         className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-300"
                       >
                         Save
@@ -251,7 +339,7 @@ export default function TypingTest() {
           <div
             ref={containerRef}
             onClick={isInputReady ? focusInput : undefined}
-            className="relative bg-white border border-gray-200 rounded-2xl p-6 sm:p-8 shadow-sm cursor-text min-h-[180px] transition-colors dark:border-gray-800 dark:bg-gray-900 dark:shadow-none"
+            className="relative bg-white border border-gray-200 rounded-2xl p-6 sm:p-8 shadow-sm cursor-text transition-colors dark:border-gray-800 dark:bg-gray-900 dark:shadow-none"
           >
             <div className={isInputReady ? '' : 'blur-[1px]'}>
               <TextDisplay

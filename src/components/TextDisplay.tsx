@@ -36,6 +36,24 @@ export default function TextDisplay({
     height: 0,
     visible: false,
   });
+  const [scrollY, setScrollY] = useState(0);
+
+  useEffect(() => {
+    const activeChar = charRefs.current[currentCharIndex] || charRefs.current[currentCharIndex - 1];
+    const firstChar = charRefs.current[0];
+    if (activeChar && firstChar) {
+      const offsetTop = activeChar.offsetTop - firstChar.offsetTop;
+      const charHeight = activeChar.offsetHeight;
+      if (charHeight > 0) {
+        const currentLine = Math.round(offsetTop / charHeight);
+        if (currentLine >= 1) {
+          setScrollY((currentLine - 1) * charHeight);
+        } else {
+          setScrollY(0);
+        }
+      }
+    }
+  }, [currentCharIndex]);
 
   useEffect(() => {
     if (!showPacingCaret || !pacingWpm || !pacingStartTime || finished) {
@@ -85,10 +103,15 @@ export default function TextDisplay({
 
   return (
     <div
-      ref={displayRef}
-      className="relative font-mono text-lg sm:text-xl leading-relaxed tracking-wide whitespace-pre-wrap break-words select-none"
+      className="relative overflow-hidden w-full text-xl sm:text-2xl"
+      style={{ height: 'calc(4 * 1.625em)' }}
     >
-      {caretPosition.visible && (
+      <div
+        ref={displayRef}
+        className="relative font-mono leading-relaxed tracking-wide whitespace-pre-wrap break-words select-none transition-transform duration-200 ease-out"
+        style={{ transform: `translateY(-${scrollY}px)` }}
+      >
+        {caretPosition.visible && (
         <span
           className="absolute z-10 w-0.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.45)]"
           style={{
@@ -115,6 +138,7 @@ export default function TextDisplay({
           </span>
         );
       })}
+      </div>
     </div>
   );
 }

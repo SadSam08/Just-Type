@@ -16,7 +16,7 @@ export interface TypingState {
   errors: number;
 }
 
-export function useTypingTest(testMode: 'typing-test' | 'passages' = 'passages') {
+export function useTypingTest(testMode: 'typing-test' | 'passages' = 'passages', sessionDuration: number | null = null) {
   const [passage, setPassage] = useState<Passage>(() => {
     if (testMode === 'typing-test') {
       return {
@@ -63,13 +63,19 @@ export function useTypingTest(testMode: 'typing-test' | 'passages' = 'passages')
   useEffect(() => {
     if (started && !finished) {
       intervalRef.current = setInterval(() => {
-        setElapsedSeconds(Math.floor((Date.now() - (startTime ?? Date.now())) / 1000));
+        const newElapsed = Math.floor((Date.now() - (startTime ?? Date.now())) / 1000);
+        setElapsedSeconds(newElapsed);
+        
+        if (sessionDuration && sessionDuration > 0 && newElapsed >= sessionDuration) {
+          setFinished(true);
+          if (intervalRef.current) clearInterval(intervalRef.current);
+        }
       }, 200);
     }
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [started, finished, startTime]);
+  }, [started, finished, startTime, sessionDuration]);
 
   const handleInput = useCallback(
     (value: string) => {
